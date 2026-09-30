@@ -65,6 +65,7 @@ class NaviMediaService : MediaLibraryService() {
         const val RECENT_ID = "recent"
         const val PLAYLISTS_ID = "playlists"
         const val COMMAND_SET_EQ_PRESET = "com.antiwilly.naviplayer.SET_EQ_PRESET"
+        const val COMMAND_SET_EQ_ENABLED = "com.antiwilly.naviplayer.SET_EQ_ENABLED"
         const val COMMAND_SET_BASS_BOOST = "com.antiwilly.naviplayer.SET_BASS_BOOST"
         const val COMMAND_START_SLEEP_TIMER = "com.antiwilly.naviplayer.START_SLEEP_TIMER"
         const val COMMAND_CANCEL_SLEEP_TIMER = "com.antiwilly.naviplayer.CANCEL_SLEEP_TIMER"
@@ -150,6 +151,25 @@ class NaviMediaService : MediaLibraryService() {
 
     private inner class LibrarySessionCallback : MediaLibrarySession.Callback {
 
+        @OptIn(UnstableApi::class)
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            val defaultResult = super<MediaLibrarySession.Callback>.onConnect(session, controller)
+            val commands = listOf(
+                COMMAND_SET_EQ_PRESET,
+                COMMAND_SET_EQ_ENABLED,
+                COMMAND_SET_BASS_BOOST,
+                COMMAND_START_SLEEP_TIMER,
+                COMMAND_CANCEL_SLEEP_TIMER
+            ).fold(defaultResult.availableSessionCommands.buildUpon()) { builder, action ->
+                builder.add(SessionCommand(action, Bundle()))
+            }.build()
+
+            return MediaSession.ConnectionResult.accept(commands, defaultResult.availablePlayerCommands)
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
@@ -197,9 +217,16 @@ class NaviMediaService : MediaLibraryService() {
                 COMMAND_SET_EQ_PRESET -> {
                     val preset = args.getString("preset", "Flat")
                     audioEffectsController.applyPreset(preset)
+                    audioEffectsController.setEqualizerEnabled(true)
                     serviceScope.launch {
                         userPreferencesDataStore.setEqualizerPreset(preset)
+                        userPreferencesDataStore.setEqualizerEnabled(true)
                     }
+                }
+                COMMAND_SET_EQ_ENABLED -> {
+                    val enabled = args.getBoolean("enabled", false)
+                    audioEffectsController.setEqualizerEnabled(enabled)
+                    serviceScope.launch { userPreferencesDataStore.setEqualizerEnabled(enabled) }
                 }
                 COMMAND_SET_BASS_BOOST -> {
                     val strength = args.getInt("strength", 0)

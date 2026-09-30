@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -30,11 +31,14 @@ fun EqualizerSheet(
     onDismissRequest: () -> Unit,
     onPresetSelected: (String) -> Unit,
     onBassBoostChanged: (Int) -> Unit,
+    onEqualizerEnabledChanged: (Boolean) -> Unit,
     currentPreset: String = "Flat",
-    currentBassBoost: Int = 0
+    currentBassBoost: Int = 0,
+    isEqualizerEnabled: Boolean = false
 ) {
     var selectedPreset by remember { mutableStateOf(currentPreset) }
     var bassBoostValue by remember { mutableFloatStateOf(currentBassBoost.toFloat()) }
+    var equalizerEnabled by remember { mutableStateOf(isEqualizerEnabled) }
 
     val presets = listOf("Flat", "Bass Boost", "Rock", "Pop", "Jazz", "Electronic", "Vocal")
 
@@ -50,6 +54,20 @@ fun EqualizerSheet(
                 text = "Audio Equalizer",
                 style = MaterialTheme.typography.titleLarge
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Equalizer", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = equalizerEnabled,
+                    onCheckedChange = {
+                        equalizerEnabled = it
+                        onEqualizerEnabledChanged(it)
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -69,6 +87,8 @@ fun EqualizerSheet(
                         selected = selectedPreset == preset,
                         onClick = {
                             selectedPreset = preset
+                            equalizerEnabled = true
+                            onEqualizerEnabledChanged(true)
                             onPresetSelected(preset)
                         },
                         label = { Text(preset) },

@@ -18,12 +18,12 @@ class SubsonicAuthInterceptor(
         val token = computeToken(profile.token, salt)
 
         val url = originalRequest.url.newBuilder()
-            .addQueryParameter("u", profile.username)
-            .addQueryParameter("t", token)
-            .addQueryParameter("s", salt)
-            .addQueryParameter("v", "1.16.1")
-            .addQueryParameter("c", "NaviPlayer")
-            .addQueryParameter("f", "json")
+            .setQueryParameter("u", profile.username)
+            .setQueryParameter("t", token)
+            .setQueryParameter("s", salt)
+            .setQueryParameter("v", "1.16.1")
+            .setQueryParameter("c", "NaviPlayer")
+            .setQueryParameter("f", "json")
             .build()
 
         val requestBuilder = originalRequest.newBuilder().url(url)

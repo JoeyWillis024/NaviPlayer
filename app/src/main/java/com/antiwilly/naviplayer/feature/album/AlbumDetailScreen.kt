@@ -48,6 +48,7 @@ import com.antiwilly.naviplayer.core.data.repository.MusicRepository
 import com.antiwilly.naviplayer.core.model.Album
 import com.antiwilly.naviplayer.core.model.ServerProfile
 import com.antiwilly.naviplayer.core.model.Song
+import com.antiwilly.naviplayer.core.model.Playlist
 import com.antiwilly.naviplayer.core.network.SubsonicUrlHelper
 import com.antiwilly.naviplayer.ui.components.SongListItem
 
@@ -61,6 +62,8 @@ fun AlbumDetailScreen(
     onPlaySong: (Song, List<Song>) -> Unit,
     onDownloadAlbum: (List<Song>) -> Unit,
     onToggleStar: (Song) -> Unit,
+    playlists: List<Playlist>,
+    onAddToPlaylist: (Song, String, (Boolean) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var album by remember { mutableStateOf<Album?>(null) }
@@ -195,7 +198,9 @@ fun AlbumDetailScreen(
                         coverArtUrl = coverUrl,
                         onClick = { onPlaySong(song, songs) },
                         onStarClick = { onToggleStar(song) },
-                        onDownloadClick = null
+                        onDownloadClick = null,
+                        playlists = playlists,
+                        onAddToPlaylist = onAddToPlaylist
                     )
                 }
             }

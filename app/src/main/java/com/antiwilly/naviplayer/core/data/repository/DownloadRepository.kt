@@ -2,6 +2,7 @@ package com.antiwilly.naviplayer.core.data.repository
 
 import android.content.Context
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -61,7 +62,7 @@ class DownloadRepository @Inject constructor(
             .addTag("download_${song.id}")
             .build()
 
-        workManager.enqueue(request)
+        workManager.enqueueUniqueWork("download_${song.id}", ExistingWorkPolicy.KEEP, request)
     }
 
     fun downloadAlbum(songs: List<Song>) {

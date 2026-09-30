@@ -7,13 +7,13 @@ import androidx.work.WorkerParameters
 import com.antiwilly.naviplayer.core.database.dao.DownloadDao
 import com.antiwilly.naviplayer.core.database.dao.ServerProfileDao
 import com.antiwilly.naviplayer.core.database.entity.DownloadedSongEntity
-import com.antiwilly.naviplayer.core.network.SubsonicAuthInterceptor
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
 import java.io.FileOutputStream
 
@@ -48,53 +48,60 @@ class DownloadTrackWorker @AssistedInject constructor(
         if (!downloadDir.exists()) downloadDir.mkdirs()
         val audioFile = File(downloadDir, "$songId.$suffix")
 
-        val salt = SubsonicAuthInterceptor.generateSalt()
-        val token = SubsonicAuthInterceptor.computeToken(server.token, salt)
-        val base = server.baseUrl.trimEnd('/')
-        // For offline downloads, download the original direct stream without bitrate cap
-        val streamUrl = "$base/rest/stream.view?id=$songId&u=${server.username}&t=$token&s=$salt&v=1.16.1&c=NaviPlayer"
+        // The injected client adds Subsonic credentials and custom headers. Keep this URL
+        // free of credentials so the auth interceptor only adds them once.
+        val streamUrl = server.baseUrl.toHttpUrl().newBuilder()
+            .addPathSegments("rest/stream.view")
+            .addQueryParameter("id", songId)
+            .build()
 
         try {
             val request = Request.Builder().url(streamUrl).build()
             val response = okHttpClient.newCall(request).execute()
 
-            if (!response.isSuccessful) {
-                return@withContext Result.retry()
-            }
+            response.use {
+                if (!it.isSuccessful) return@withContext Result.retry()
 
-            val body = response.body ?: return@withContext Result.failure()
-            val inputStream = body.byteStream()
-            val outputStream = FileOutputStream(audioFile)
-
-            inputStream.use { input ->
-                outputStream.use { output ->
-                    input.copyTo(output)
+                val body = it.body ?: return@withContext Result.failure()
+                val contentTypeHeader = body.contentType()?.toString().orEmpty()
+                if (contentTypeHeader.contains("json", ignoreCase = true) ||
+                    contentTypeHeader.contains("text", ignoreCase = true)) {
+                    return@withContext Result.retry()
                 }
+
+                FileOutputStream(audioFile).use { output ->
+                    body.byteStream().use { input -> input.copyTo(output) }
+                }
+
+                if (!audioFile.exists() || audioFile.length() == 0L) {
+                    audioFile.delete()
+                    return@withContext Result.retry()
+                }
+
+                val entity = DownloadedSongEntity(
+                    id = songId,
+                    serverId = server.id,
+                    title = title,
+                    artist = artist,
+                    artistId = artistId,
+                    album = album,
+                    albumId = albumId,
+                    durationSec = durationSec,
+                    trackNumber = trackNumber,
+                    discNumber = discNumber,
+                    year = year,
+                    genre = genre,
+                    coverArtId = coverArtId,
+                    localCoverArtPath = null,
+                    localFilePath = audioFile.absolutePath,
+                    sizeBytes = audioFile.length(),
+                    contentType = contentType,
+                    suffix = suffix
+                )
+                downloadDao.insert(entity)
+
+                Result.success()
             }
-
-            val entity = DownloadedSongEntity(
-                id = songId,
-                serverId = server.id,
-                title = title,
-                artist = artist,
-                artistId = artistId,
-                album = album,
-                albumId = albumId,
-                durationSec = durationSec,
-                trackNumber = trackNumber,
-                discNumber = discNumber,
-                year = year,
-                genre = genre,
-                coverArtId = coverArtId,
-                localCoverArtPath = null,
-                localFilePath = audioFile.absolutePath,
-                sizeBytes = audioFile.length(),
-                contentType = contentType,
-                suffix = suffix
-            )
-            downloadDao.insert(entity)
-
-            Result.success()
         } catch (_: Exception) {
             if (audioFile.exists()) audioFile.delete()
             Result.retry()

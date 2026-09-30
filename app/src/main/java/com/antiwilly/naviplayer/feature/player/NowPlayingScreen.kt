@@ -3,15 +3,17 @@ package com.antiwilly.naviplayer.feature.player
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
@@ -33,6 +36,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +47,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -60,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.antiwilly.naviplayer.core.model.PlaybackState
 import com.antiwilly.naviplayer.core.model.Song
+import com.antiwilly.naviplayer.core.model.Playlist
 import com.antiwilly.naviplayer.feature.equalizer.EqualizerSheet
 import com.antiwilly.naviplayer.feature.sleeptimer.SleepTimerSheet
 import com.antiwilly.naviplayer.ui.components.SongListItem
@@ -80,10 +86,16 @@ fun NowPlayingScreen(
     onToggleStar: (Song) -> Unit,
     onDownloadSong: (Song) -> Unit,
     onPresetSelected: (String) -> Unit,
+    onEqualizerEnabledChanged: (Boolean) -> Unit,
+    isEqualizerEnabled: Boolean,
+    currentEqualizerPreset: String,
+    currentBassBoost: Int,
     onBassBoostChanged: (Int) -> Unit,
     onStartSleepTimer: (Int) -> Unit,
     onCancelSleepTimer: () -> Unit,
     onSelectQueueItem: (Song) -> Unit,
+    playlists: List<Playlist>,
+    onAddToPlaylist: (Song, String, (Boolean) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val song = playbackState.currentSong ?: return
@@ -93,6 +105,7 @@ fun NowPlayingScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showEqualizerSheet by remember { mutableStateOf(false) }
     var showSleepTimerSheet by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
 
     val currentPositionMs = if (isSeeking) {
         (seekProgress * playbackState.durationMs).toLong()
@@ -108,7 +121,7 @@ fun NowPlayingScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
@@ -120,11 +133,13 @@ fun NowPlayingScreen(
                     )
                 )
         ) {
+            val artworkSize = minOf(maxWidth * 0.9f, maxHeight * 0.32f)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 24.dp),
+                    .padding(top = 16.dp, bottom = 24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Top Bar
@@ -160,8 +175,7 @@ fun NowPlayingScreen(
                 // Artwork Card
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .aspectRatio(1f)
+                        .size(artworkSize)
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
@@ -213,6 +227,10 @@ fun NowPlayingScreen(
                             contentDescription = "Download Song",
                             tint = if (song.isDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+
+                    IconButton(onClick = { showAddToPlaylistDialog = true }) {
+                        Icon(Icons.Default.PlaylistAdd, contentDescription = "Add to playlist")
                     }
 
                     IconButton(onClick = { onToggleStar(song) }) {
@@ -322,7 +340,7 @@ fun NowPlayingScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Bottom Tools: Equalizer & Sleep Timer
                 Row(
@@ -386,7 +404,39 @@ fun NowPlayingScreen(
         EqualizerSheet(
             onDismissRequest = { showEqualizerSheet = false },
             onPresetSelected = onPresetSelected,
-            onBassBoostChanged = onBassBoostChanged
+            onBassBoostChanged = onBassBoostChanged,
+            onEqualizerEnabledChanged = onEqualizerEnabledChanged,
+            currentPreset = currentEqualizerPreset,
+            currentBassBoost = currentBassBoost,
+            isEqualizerEnabled = isEqualizerEnabled
+        )
+    }
+
+    if (showAddToPlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddToPlaylistDialog = false },
+            title = { Text("Add to playlist") },
+            text = {
+                if (playlists.isEmpty()) {
+                    Text("No playlists available. Create a playlist in Library first.")
+                } else {
+                    LazyColumn {
+                        itemsIndexed(playlists) { _, playlist ->
+                            TextButton(
+                                onClick = {
+                                    onAddToPlaylist(song, playlist.id) { success ->
+                                        if (success) showAddToPlaylistDialog = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text(playlist.name) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddToPlaylistDialog = false }) { Text("Close") }
+            }
         )
     }
 

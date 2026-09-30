@@ -40,6 +40,7 @@ import com.antiwilly.naviplayer.core.model.Album
 import com.antiwilly.naviplayer.core.model.Artist
 import com.antiwilly.naviplayer.core.model.ServerProfile
 import com.antiwilly.naviplayer.core.model.Song
+import com.antiwilly.naviplayer.core.model.Playlist
 import com.antiwilly.naviplayer.core.network.SubsonicUrlHelper
 import com.antiwilly.naviplayer.ui.components.SongListItem
 
@@ -50,6 +51,8 @@ fun SearchScreen(
     onAlbumClick: (Album) -> Unit,
     onArtistClick: (Artist) -> Unit,
     onPlaySong: (Song) -> Unit,
+    playlists: List<Playlist>,
+    onAddToPlaylist: (Song, String, (Boolean) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val query by viewModel.query.collectAsState()
@@ -224,7 +227,9 @@ fun SearchScreen(
                         SongListItem(
                             song = song,
                             coverArtUrl = coverUrl,
-                            onClick = { onPlaySong(song) }
+                            onClick = { onPlaySong(song) },
+                            playlists = playlists,
+                            onAddToPlaylist = onAddToPlaylist
                         )
                     }
                 }

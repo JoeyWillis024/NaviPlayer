@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.antiwilly.naviplayer.core.data.repository.DownloadRepository
 import com.antiwilly.naviplayer.core.data.repository.MusicRepository
 import com.antiwilly.naviplayer.core.data.repository.PlaybackRepository
+import com.antiwilly.naviplayer.core.datastore.UserPreferencesDataStore
 import com.antiwilly.naviplayer.core.model.PlaybackState
 import com.antiwilly.naviplayer.core.model.Song
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,10 +17,14 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val playbackRepository: PlaybackRepository,
     private val musicRepository: MusicRepository,
-    private val downloadRepository: DownloadRepository
+    private val downloadRepository: DownloadRepository,
+    preferences: UserPreferencesDataStore
 ) : ViewModel() {
 
     val playbackState: StateFlow<PlaybackState> = playbackRepository.playbackState
+    val equalizerEnabled = preferences.equalizerEnabled
+    val equalizerPreset = preferences.equalizerPreset
+    val bassBoostStrength = preferences.bassBoostStrength
 
     fun playSong(song: Song, queue: List<Song> = listOf(song)) {
         playbackRepository.playSong(song, queue)
@@ -58,6 +63,10 @@ class PlayerViewModel @Inject constructor(
         playbackRepository.setEqualizerPreset(preset)
     }
 
+    fun setEqualizerEnabled(enabled: Boolean) {
+        playbackRepository.setEqualizerEnabled(enabled)
+    }
+
     fun setBassBoost(strength: Int) {
         playbackRepository.setBassBoost(strength)
     }
@@ -78,5 +87,12 @@ class PlayerViewModel @Inject constructor(
 
     fun downloadSong(song: Song) {
         downloadRepository.downloadSong(song)
+    }
+
+    fun addSongToPlaylist(song: Song, playlistId: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = musicRepository.updatePlaylist(playlistId, songIdToAdd = listOf(song.id))
+            onComplete(result.isSuccess)
+        }
     }
 }

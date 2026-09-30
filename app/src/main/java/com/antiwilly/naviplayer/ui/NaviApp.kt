@@ -75,6 +75,10 @@ fun NaviApp(
     downloadsViewModel: DownloadsViewModel = hiltViewModel()
 ) {
     val playbackState by playerViewModel.playbackState.collectAsState()
+    val equalizerEnabled by playerViewModel.equalizerEnabled.collectAsState(initial = false)
+    val equalizerPreset by playerViewModel.equalizerPreset.collectAsState(initial = "Flat")
+    val bassBoostStrength by playerViewModel.bassBoostStrength.collectAsState(initial = 0)
+    val playlists by libraryViewModel.playlists.collectAsState()
     val activeProfile by settingsViewModel.activeProfile.collectAsState()
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
 
@@ -154,7 +158,11 @@ fun NaviApp(
                             activeProfile = activeProfile,
                             onAlbumClick = { album -> navController.navigate("album/${album.id}") },
                             onArtistClick = { artist -> navController.navigate("artist/${artist.id}") },
-                            onPlaySong = { song -> playerViewModel.playSong(song) }
+                            onPlaySong = { song -> playerViewModel.playSong(song) },
+                            playlists = playlists,
+                            onAddToPlaylist = { song, playlistId, onComplete ->
+                                playerViewModel.addSongToPlaylist(song, playlistId, onComplete)
+                            }
                         )
                     }
 
@@ -181,7 +189,11 @@ fun NaviApp(
                             onBackClick = { navController.popBackStack() },
                             onPlaySong = { song, queue -> playerViewModel.playSong(song, queue) },
                             onDownloadAlbum = { songs -> songs.forEach { playerViewModel.downloadSong(it) } },
-                            onToggleStar = { song -> playerViewModel.toggleStar(song) }
+                            onToggleStar = { song -> playerViewModel.toggleStar(song) },
+                            playlists = playlists,
+                            onAddToPlaylist = { song, playlistId, onComplete ->
+                                playerViewModel.addSongToPlaylist(song, playlistId, onComplete)
+                            }
                         )
                     }
 
@@ -248,10 +260,18 @@ fun NaviApp(
                 onToggleStar = { playerViewModel.toggleStar(it) },
                 onDownloadSong = { playerViewModel.downloadSong(it) },
                 onPresetSelected = { playerViewModel.setEqualizerPreset(it) },
+                onEqualizerEnabledChanged = { playerViewModel.setEqualizerEnabled(it) },
+                isEqualizerEnabled = equalizerEnabled,
+                currentEqualizerPreset = equalizerPreset,
+                currentBassBoost = bassBoostStrength,
                 onBassBoostChanged = { playerViewModel.setBassBoost(it) },
                 onStartSleepTimer = { playerViewModel.startSleepTimer(it) },
                 onCancelSleepTimer = { playerViewModel.cancelSleepTimer() },
-                onSelectQueueItem = { playerViewModel.playSong(it, playbackState.queue) }
+                onSelectQueueItem = { playerViewModel.playSong(it, playbackState.queue) },
+                playlists = playlists,
+                onAddToPlaylist = { song, playlistId, onComplete ->
+                    playerViewModel.addSongToPlaylist(song, playlistId, onComplete)
+                }
             )
         }
     }

@@ -206,6 +206,12 @@ class PlaybackRepository @Inject constructor(
         mediaController?.sendCustomCommand(command, bundle)
     }
 
+    fun setEqualizerEnabled(enabled: Boolean) {
+        val command = SessionCommand(NaviMediaService.COMMAND_SET_EQ_ENABLED, Bundle())
+        val bundle = Bundle().apply { putBoolean("enabled", enabled) }
+        mediaController?.sendCustomCommand(command, bundle)
+    }
+
     fun setBassBoost(strength: Int) {
         val command = SessionCommand(NaviMediaService.COMMAND_SET_BASS_BOOST, Bundle())
         val bundle = Bundle().apply { putInt("strength", strength) }
